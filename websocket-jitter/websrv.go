@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"sort"
@@ -16,6 +17,7 @@ const (
 	// The number of application-layer pings that we use to determine the round
 	// trip time to the client.
 	numAppLayerPings = 10000
+	bindAddr         = ":8443"
 )
 
 func mean(ms []time.Duration) time.Duration {
@@ -35,6 +37,18 @@ func median(ms []time.Duration) time.Duration {
 	a := ms[len(ms)/2-1]
 	b := ms[len(ms)/2]
 	return a + b/2
+}
+
+func writeStats(ms []time.Duration) {
+	fd, err := ioutil.TempFile(".", "websocket-rtt-")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Fprintln(fd, "us")
+	for _, m := range ms {
+		fmt.Fprintln(fd, m.Microseconds())
+	}
+	log.Printf("Wrote results to: %s", fd.Name())
 }
 
 func calcStats(ms []time.Duration) {
@@ -65,6 +79,9 @@ func webSocketHandler(w http.ResponseWriter, r *http.Request) {
 	// Use the WebSocket connection to send application-layer pings to the
 	// client and determine the round trip time.
 	for i := 0; i < numAppLayerPings; i++ {
+		if i%100 == 0 {
+			fmt.Print(".")
+		}
 		then := time.Now().UTC()
 		err = c.WriteMessage(websocket.TextMessage, []byte(then.String()))
 		if err != nil {
@@ -84,6 +101,7 @@ func webSocketHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	calcStats(ms)
+	writeStats(ms)
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
@@ -93,7 +111,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	endpoint := "wss://example.com:8443/websocket"
+	endpoint := "wss://127.0.0.1:8443/websocket"
 	buf := new(bytes.Buffer)
 	if err := t.Execute(buf, struct {
 		WebSocketEndpoint string
@@ -111,5 +129,10 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/websocket", webSocketHandler)
-	log.Fatal(http.ListenAndServeTLS(":8443", "cert.pem", "key.pem", nil))
+	log.Printf("Starting Web server at %s.", bindAddr)
+	// Generate a self-signed certificate for localhost by running:
+	// openssl req -nodes -x509 -newkey rsa:4096 \
+	//   -keyout key.pem -out cert.pem -sha256 -days 365 \
+	//   -subj "/C=US/ST=Oregon/L=Portland/O=Company Name/OU=Org/CN=192.168.1.3"
+	log.Fatal(http.ListenAndServeTLS(bindAddr, "cert.pem", "key.pem", nil))
 }
