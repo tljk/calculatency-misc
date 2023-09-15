@@ -1,5 +1,6 @@
 require(ggplot2)
 require(tikzDevice)
+require(scales) # for "labels=comma"
 
 args <- commandArgs(trailingOnly = TRUE)
 input_file <- args[1]
@@ -23,7 +24,8 @@ for (p in unique(data$Platform)) {
 ggplot(data, aes(x = ms,
                  y = Platform)) +
        geom_violin() +
-       scale_x_continuous(limits = c(75, max(data$ms))) +
+       #scale_x_continuous(limits = c(75, max(data$ms))) +
+       scale_x_continuous(labels=comma, trans="log10") +
        theme_minimal() +
        labs(x = "TCP handshake RTT (ms)",
             y = NULL)
