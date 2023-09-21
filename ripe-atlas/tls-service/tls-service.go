@@ -48,9 +48,9 @@ func handleConns(addr string, handle tcpHandler) {
 func getTCPHandler(config *tls.Config, iface string, port uint16) tcpHandler {
 	ztConfig := zerotrace.NewDefaultConfig()
 	ztConfig.Interface = iface
-	zt, err := zerotrace.OpenZeroTrace(ztConfig)
-	if err != nil {
-		l.Fatalf("Error opening zerotrace: %v", err)
+	zt := zerotrace.NewZeroTrace(ztConfig)
+	if err := zt.Start(); err != nil {
+		l.Fatalf("Error starting zerotrace: %v", err)
 	}
 
 	return func(conn net.Conn) {
