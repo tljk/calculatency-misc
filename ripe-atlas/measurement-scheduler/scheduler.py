@@ -14,7 +14,11 @@ from typing import Callable, Any
 import ripe.atlas.cousteau as atlas
 from timezonefinder import TimezoneFinder
 
-log.basicConfig(level=log.INFO)
+log.basicConfig(
+    format="%(asctime)s %(levelname)s: %(message)s",
+    level=log.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 ID = "id"
 OBJECTS = "objects"
@@ -376,7 +380,7 @@ def sleep_until(datetime: dt.datetime):
     """Suspend execution until the given date/time."""
     diff = datetime - datetime.now(tz=datetime.tzinfo)
     num_secs = diff.total_seconds()
-    log.info("Sleeping {:,} seconds until {}.".format(num_secs, datetime))
+    log.info("Sleeping {} until {}.".format(diff, datetime))
     time.sleep(num_secs)
 
 
@@ -408,8 +412,11 @@ def main(probe_file: str, start_date: dt.datetime):
         if len(current_probes) > 0:
             log.info("Proceeding with {:,} probes.".format(len(current_probes)))
             # We repeat each measurement round three times, five minutes apart.
-            for attempt in range(3):
-                log.info("Starting measurement run {}.".format(attempt + 1))
+            num_repeats = 3
+            for repeat in range(num_repeats):
+                log.info(
+                    "Starting measurement run {}/{}.".format(repeat + 1, num_repeats)
+                )
                 run_in_batches(current_probes, schedule_measurements)
                 time.sleep(60 * 5)
         else:
