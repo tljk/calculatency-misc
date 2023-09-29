@@ -34,6 +34,8 @@ github.com/brave/zerotrace v0.1.2-0.20230912190827-9864c81ee7a9 h1:xlE8kbXKlIx6o
 github.com/brave/zerotrace v0.1.2-0.20230912190827-9864c81ee7a9/go.mod h1:n633Z7NTV4iFeOkiFwBpF73J9Is5anyrdkfxoCTK21g=
 github.com/brave/zerotrace v0.1.2-0.20230914211903-c748ce3467bc h1:GHTrYLHbQL+upT68CPq062HZd4EvKS+S9gYlr12aMMg=
 github.com/brave/zerotrace v0.1.2-0.20230914211903-c748ce3467bc/go.mod h1:n633Z7NTV4iFeOkiFwBpF73J9Is5anyrdkfxoCTK21g=
+github.com/brave/zerotrace v0.2.1 h1:HmGoo8+To895wr21X/pFw/1N7hGIX6gQ63cyZw+rUyc=
+github.com/brave/zerotrace v0.2.1/go.mod h1:n633Z7NTV4iFeOkiFwBpF73J9Is5anyrdkfxoCTK21g=
 github.com/google/gopacket v1.1.19 h1:ves8RnFZPGiFnTS0uPQStjwru6uO6h+nlr9j6fL7kF8=
 github.com/google/gopacket v1.1.19/go.mod h1:iJ8V8n6KS+z2U1A8pUwu8bW5SyEMkXJB8Yo/Vo+TKTo=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
