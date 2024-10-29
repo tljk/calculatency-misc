@@ -19,7 +19,7 @@ import (
 const (
 	// The number of application-layer pings that we use to determine the round
 	// trip time to the client.
-	numAppLayerPings = 4
+	numAppLayerPings = 10
 )
 
 var (
@@ -146,7 +146,7 @@ func main() {
 
 	flag.StringVar(&iface, "iface", "",
 		"Networking interface to monitor")
-	flag.IntVar(&srvPort, "port", 8443,
+	flag.IntVar(&srvPort, "port", 443,
 		"Port to monitor for TCP handshakes")
 	flag.Parse()
 
