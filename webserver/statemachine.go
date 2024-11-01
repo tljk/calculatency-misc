@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
+	"os"
 	"sync"
 	"time"
 
@@ -14,7 +16,6 @@ type stateMachine struct {
 	sync.RWMutex
 	clientSide bool
 	m          map[fourTuple]*handshake
-	rtts       []time.Duration
 }
 
 func (s *stateMachine) prune() int {
@@ -106,10 +107,17 @@ func (s *stateMachine) add(p gopacket.Packet) error {
 		if err != nil {
 			log.Printf("Failed to determine RTT of completed handshake: %v", err)
 		} else {
-			s.Lock()
-			s.rtts = append(s.rtts, rtt)
-			s.Unlock()
-			_ = s.deleteStateForPkt(p)
+			tuple, _ := s.deleteStateForPkt(p)
+			file, err := os.OpenFile("./results/tcp_rtt.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err == nil {
+				defer file.Close()
+				logEntry := fmt.Sprintf("%d, %s:%d, %s:%d, %d\n", time.Now().Unix(), tuple.srcAddr, tuple.srcPort, tuple.dstAddr, tuple.dstPort, rtt.Microseconds())
+				if _, err := file.WriteString(logEntry); err != nil {
+					log.Fatalf("Failed to write to file: %v", err)
+				}
+			} else {
+				log.Fatalf("Failed to open file: %v", err)
+			}
 			log.Printf("TCP handshake RTT: %v", rtt)
 		}
 	}
@@ -119,16 +127,16 @@ func (s *stateMachine) add(p gopacket.Packet) error {
 
 // deleteStateForPkt deletes the state (if any) we maintain for the given
 // packet.
-func (s *stateMachine) deleteStateForPkt(p gopacket.Packet) error {
+func (s *stateMachine) deleteStateForPkt(p gopacket.Packet) (*fourTuple, error) {
 	tuple, err := pktToTuple(p)
 	if err != nil {
-		return errNoFourTuple
+		return nil, errNoFourTuple
 	}
 	s.Lock()
 	delete(s.m, *tuple)
 	s.Unlock()
 
-	return nil
+	return tuple, nil
 }
 
 // pktToTuple extracts the four-tuple from the given packet: source IP address,

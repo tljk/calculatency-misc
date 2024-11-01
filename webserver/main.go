@@ -49,39 +49,11 @@ func processPkts(handle *pcap.Handle, s *stateMachine) {
 	}
 }
 
-func writeToFile(s *stateMachine) {
-	s.Lock()
-	defer s.Unlock()
-
-	fd, err := os.CreateTemp("./results", "rtts-")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Fprintln(fd, "us")
-	for _, rtt := range s.rtts {
-		fmt.Fprintln(fd, rtt.Microseconds())
-	}
-	log.Printf("Wrote %d RTTs to: %s", len(s.rtts), fd.Name())
-}
-
 func startWebServer(port int) {
 	http.HandleFunc("/", indexHandler)
 	addr := fmt.Sprintf(":%d", port)
 	log.Printf("Starting Web server at %s.", addr)
 	log.Fatal(http.ListenAndServeTLS(addr, "cert.pem", "key.pem", nil))
-}
-
-func writeStats(ms []time.Duration) {
-	fd, err := os.CreateTemp("./results", "websocket-rtt-")
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Fprintln(fd, "us")
-	for _, m := range ms {
-		fmt.Fprintln(fd, m.Microseconds())
-	}
-	log.Printf("Wrote results to: %s", fd.Name())
 }
 
 func webSocketHandler(w http.ResponseWriter, r *http.Request) {
@@ -96,14 +68,17 @@ func webSocketHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.Close()
 
+	srcAddr := c.RemoteAddr().String()
+	destAddr := c.LocalAddr().String()
+
 	// Use the WebSocket connection to send application-layer pings to the
 	// client and determine the round trip time.
 	for i := 0; i < numAppLayerPings; i++ {
 		if i%100 == 0 {
 			fmt.Print(".")
 		}
-		then := time.Now().UTC()
-		err = c.WriteMessage(websocket.TextMessage, []byte(then.String()))
+		then := time.Now()
+		err = c.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("%d", then.Unix())))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -115,13 +90,24 @@ func webSocketHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		now := time.Now().UTC()
+		now := time.Now()
 		ms = append(ms, now.Sub(then))
 		log.Printf("Websocket ping RTT: %s", now.Sub(then))
 		time.Sleep(time.Millisecond * 200)
 	}
 
-	writeStats(ms)
+	file, err := os.OpenFile("./results/websocket_rtt.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err == nil {
+		defer file.Close()
+		for _, rtt := range ms {
+			logEntry := fmt.Sprintf("%d, %s, %s, %v\n", time.Now().Unix(), srcAddr, destAddr, rtt.Microseconds())
+			if _, err := file.WriteString(logEntry); err != nil {
+				log.Fatalf("Failed to write to file: %v", err)
+			}
+		}
+	} else {
+		log.Fatalf("Failed to open file: %v", err)
+	}
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
@@ -185,9 +171,6 @@ func main() {
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		<-c
-		if len(state.rtts) != 0 {
-			writeToFile(state)
-		}
 		os.Exit(0)
 	}()
 
