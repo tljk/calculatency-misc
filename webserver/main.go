@@ -30,6 +30,11 @@ var (
 	errNoSyn               = errors.New("got SYN/ACK for non-existing SYN")
 	errIPHasNoTCP          = errors.New("IP packet does not carry TCP segment")
 	errNoIPPkt             = errors.New("not an IPv4 or IPv6 packet")
+	srvPort                int
+	iface                  string
+	certPath               string
+	keyPath                string
+	filePath               string
 )
 
 // filter returns the pcap filter that we use to capture TCP handshakes for the
@@ -49,11 +54,11 @@ func processPkts(handle *pcap.Handle, s *stateMachine) {
 	}
 }
 
-func startWebServer(port int) {
+func startWebServer(port int, certPath string, keyPath string) {
 	http.HandleFunc("/", indexHandler)
 	addr := fmt.Sprintf(":%d", port)
 	log.Printf("Starting Web server at %s.", addr)
-	log.Fatal(http.ListenAndServeTLS(addr, "cert.pem", "key.pem", nil))
+	log.Fatal(http.ListenAndServeTLS(addr, certPath, keyPath, nil))
 }
 
 func webSocketHandler(w http.ResponseWriter, r *http.Request) {
@@ -96,7 +101,7 @@ func webSocketHandler(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(time.Millisecond * 200)
 	}
 
-	file, err := os.OpenFile("./results/websocket_rtt.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(filePath+"results/websocket_rtt.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err == nil {
 		defer file.Close()
 		for _, rtt := range ms {
@@ -116,7 +121,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	buf, err := os.ReadFile("index.html")
+	buf, err := os.ReadFile(filePath + "index.html")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -127,13 +132,13 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	var srvPort int
-	var iface string
-
 	flag.StringVar(&iface, "iface", "",
 		"Networking interface to monitor")
 	flag.IntVar(&srvPort, "port", 443,
 		"Port to monitor for TCP handshakes")
+	flag.StringVar(&certPath, "cert", "cert.pem", "Path to TLS certificate")
+	flag.StringVar(&keyPath, "key", "key.pem", "Path to TLS private key")
+	flag.StringVar(&filePath, "path", "./", "Path to save results")
 	flag.Parse()
 
 	if iface == "" {
@@ -155,11 +160,11 @@ func main() {
 		}
 	}
 
-	if _, err := os.Stat("./results"); os.IsNotExist(err) {
-		_ = os.Mkdir("./results", 0755)
+	if _, err := os.Stat(filePath + "results"); os.IsNotExist(err) {
+		_ = os.Mkdir(filePath+"results", 0755)
 	}
 
-	go startWebServer(srvPort)
+	go startWebServer(srvPort, certPath, keyPath)
 
 	state := &stateMachine{
 		clientSide: false,

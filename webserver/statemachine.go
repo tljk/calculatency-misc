@@ -108,7 +108,7 @@ func (s *stateMachine) add(p gopacket.Packet) error {
 			log.Printf("Failed to determine RTT of completed handshake: %v", err)
 		} else {
 			tuple, _ := s.deleteStateForPkt(p)
-			file, err := os.OpenFile("./results/tcp_rtt.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			file, err := os.OpenFile(filePath+"results/tcp_rtt.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err == nil {
 				defer file.Close()
 				logEntry := fmt.Sprintf("%d, %s:%d, %s:%d, %d\n", time.Now().Unix(), tuple.srcAddr, tuple.srcPort, tuple.dstAddr, tuple.dstPort, rtt.Microseconds())

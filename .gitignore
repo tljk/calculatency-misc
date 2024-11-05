@@ -1,3 +1,6 @@
 webserver/results/*
 webserver/webserver
 client/client
+client/log.txt
+webserver/cert.pem
+webserver/key.pem
