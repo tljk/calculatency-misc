@@ -14,12 +14,15 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/pcap"
 	"github.com/gorilla/websocket"
+	"golang.org/x/net/icmp"
+	"golang.org/x/net/ipv4"
 )
 
 const (
 	// The number of application-layer pings that we use to determine the round
 	// trip time to the client.
 	numAppLayerPings = 10
+	numNetLayerPings = 10
 )
 
 var (
@@ -98,7 +101,7 @@ func webSocketHandler(w http.ResponseWriter, r *http.Request) {
 		now := time.Now()
 		ms = append(ms, now.Sub(then))
 		log.Printf("Websocket ping RTT: %s", now.Sub(then))
-		time.Sleep(time.Millisecond * 200)
+		time.Sleep(time.Millisecond * 100)
 	}
 
 	file, err := os.OpenFile(filePath+"results/websocket_rtt.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -117,6 +120,7 @@ func webSocketHandler(w http.ResponseWriter, r *http.Request) {
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	if websocket.IsWebSocketUpgrade(r) {
+		sendICMPPing(r.RemoteAddr)
 		webSocketHandler(w, r)
 		return
 	}
@@ -129,6 +133,102 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html")
 	fmt.Fprint(w, string(buf))
+}
+
+func sendICMPPing(srcAddr string) {
+	var rtts []time.Duration
+	clientIP, _, err := net.SplitHostPort(srcAddr)
+	if err != nil {
+		log.Printf("Failed to split host and port: %v", err)
+	}
+
+	for i := 0; i < numNetLayerPings; i++ {
+		rtt, err := ping(clientIP)
+		if err != nil {
+			log.Printf("Ping %d failed: %v", i+1, err)
+			continue
+		}
+		rtts = append(rtts, rtt)
+		log.Printf("Ping %d: RTT = %v", i+1, rtt)
+		time.Sleep(time.Millisecond * 100)
+	}
+
+	if len(rtts) == 0 {
+		log.Println("All pings failed.")
+		return
+	}
+
+	file, err := os.OpenFile(filePath+"results/icmp_rtt.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err == nil {
+		defer file.Close()
+		for _, rtt := range rtts {
+			logEntry := fmt.Sprintf("%d, %s, %v\n", time.Now().Unix(), clientIP, rtt.Microseconds())
+			if _, err := file.WriteString(logEntry); err != nil {
+				log.Fatalf("Failed to write to file: %v", err)
+			}
+		}
+	} else {
+		log.Fatalf("Failed to open file: %v", err)
+	}
+}
+
+func ping(addr string) (time.Duration, error) {
+	c, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
+	if err != nil {
+		return 0, err
+	}
+	defer c.Close()
+
+	dst, err := net.ResolveIPAddr("ip4", addr)
+	if err != nil {
+		return 0, err
+	}
+
+	msg := icmp.Message{
+		Type: ipv4.ICMPTypeEcho,
+		Code: 0,
+		Body: &icmp.Echo{
+			ID:   os.Getpid() & 0xffff,
+			Seq:  1,
+			Data: []byte(" "),
+		},
+	}
+	msgBytes, err := msg.Marshal(nil)
+	if err != nil {
+		return 0, err
+	}
+
+	start := time.Now()
+	_, err = c.WriteTo(msgBytes, dst)
+	if err != nil {
+		return 0, err
+	}
+
+	reply := make([]byte, 1500)
+	err = c.SetReadDeadline(time.Now().Add(3 * time.Second))
+	if err != nil {
+		return 0, err
+	}
+
+	n, _, err := c.ReadFrom(reply)
+	if err != nil {
+		return 0, err
+	}
+	duration := time.Since(start)
+
+	rm, err := icmp.ParseMessage(1, reply[:n])
+	if err != nil {
+		return 0, err
+	}
+
+	switch rm.Type {
+	case ipv4.ICMPTypeEcho:
+		return duration, nil
+	case ipv4.ICMPTypeEchoReply:
+		return duration, nil
+	default:
+		return 0, fmt.Errorf("got %+v from %v", rm, addr)
+	}
 }
 
 func main() {
