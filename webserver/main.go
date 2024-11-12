@@ -77,7 +77,7 @@ func webSocketHandler(w http.ResponseWriter, r *http.Request) {
 	defer c.Close()
 
 	srcAddr := c.RemoteAddr().String()
-	destAddr := c.LocalAddr().String()
+	time.Sleep(time.Millisecond * 100)
 
 	// Use the WebSocket connection to send application-layer pings to the
 	// client and determine the round trip time.
@@ -108,7 +108,7 @@ func webSocketHandler(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		defer file.Close()
 		for _, rtt := range ms {
-			logEntry := fmt.Sprintf("%d, %s, %s, %v\n", time.Now().Unix(), srcAddr, destAddr, rtt.Microseconds())
+			logEntry := fmt.Sprintf("%d,%s,%v\n", time.Now().Unix(), srcAddr, rtt.Microseconds())
 			if _, err := file.WriteString(logEntry); err != nil {
 				log.Fatalf("Failed to write to file: %v", err)
 			}
@@ -162,7 +162,7 @@ func sendICMPPing(srcAddr string) {
 	if err == nil {
 		defer file.Close()
 		for _, rtt := range rtts {
-			logEntry := fmt.Sprintf("%d, %s, %v\n", time.Now().Unix(), clientIP, rtt.Microseconds())
+			logEntry := fmt.Sprintf("%d,%s,%v\n", time.Now().Unix(), clientIP, rtt.Microseconds())
 			if _, err := file.WriteString(logEntry); err != nil {
 				log.Fatalf("Failed to write to file: %v", err)
 			}

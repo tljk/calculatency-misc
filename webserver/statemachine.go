@@ -111,7 +111,7 @@ func (s *stateMachine) add(p gopacket.Packet) error {
 			file, err := os.OpenFile(filePath+"results/tcp_rtt.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err == nil {
 				defer file.Close()
-				logEntry := fmt.Sprintf("%d, %s:%d, %s:%d, %d\n", time.Now().Unix(), tuple.srcAddr, tuple.srcPort, tuple.dstAddr, tuple.dstPort, rtt.Microseconds())
+				logEntry := fmt.Sprintf("%d,%s,%d\n", time.Now().Unix(), tuple.srcAddr, rtt.Microseconds())
 				if _, err := file.WriteString(logEntry); err != nil {
 					log.Fatalf("Failed to write to file: %v", err)
 				}
