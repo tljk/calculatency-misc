@@ -25,10 +25,12 @@ func monitorConsoleLog(ctx context.Context) {
 func main() {
 	var ips string
 	var ipList []string
+	var proxy string
 	var port int
 	var timeout int
 
 	flag.StringVar(&ips, "ips", "", "Space separated list of IPs")
+	flag.StringVar(&proxy, "proxy", "", "Proxy server")
 	flag.IntVar(&port, "port", 443, "Port number")
 	flag.IntVar(&timeout, "timeout", 5, "Timeout in seconds")
 	flag.Parse()
@@ -41,6 +43,10 @@ func main() {
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.Flag("ignore-certificate-errors", true),
 	)
+	if proxy != "" {
+		opts = append(opts, chromedp.ProxyServer(proxy))
+	}
+
 	allocCtx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
 	defer cancel()
 
